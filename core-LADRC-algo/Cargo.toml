@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Boaz Drori bizbizdrori@gmail.com"]
 description = "A platform-agnostic, no_std LADRC motor control engine for embedded Rust."
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["no_std", "ladrc", "motor-control", "robotics", "embedded"]
 categories = ["embedded", "science", "hardware-support"]
 
