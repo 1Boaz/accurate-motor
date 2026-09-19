@@ -32,15 +32,21 @@ impl SensorsState {
 	pub fn sensor2(&self) -> bool {
 		self.sensor2
 	}
+
+	/// Packs the two sensor readings into a 2-bit state.
+	///
+	/// Sensor 1 is the most significant bit.
+	#[inline]
+	fn as_bits(&self) -> u8 {
+		((self.sensor1 as u8) << 1) | (self.sensor2 as u8)
+	}
 }
 
-/// A fixed-size ring buffer maintaining recent encoder states.
+/// A struct to save the last encoder state for direction comparison and slots counter.
 #[derive(Debug, Clone, Copy)]
 pub struct SensorsPairState {
-	/// Stores the 4 most recent sensor measurements.
-	past_4_measures: [SensorsState; 4],
-	/// Points to the most recently written slot in `past_4_measures`.
-	current_index: usize,
+	/// Stores the most recent sensor measurement.
+	last_measure: SensorsState,
 	/// Saves the amount of slots counted since initialization(times by ratio is degrees).
 	/// Counted counter-clockwise positive.
 	slots: i32,
@@ -69,7 +75,7 @@ pub trait SensorsPair {
 	///
 	/// let mut encoder = SensorsPairState::new(0);
 	/// let new_state = SensorsState::new(true, false);
-	/// let _delta = encoder.update_state(new_state);
+	/// let (is_moving, is_CCW) = encoder.update_state(new_state);
 	/// ```
 	fn update_state(&mut self, new_state: SensorsState) -> (bool, bool);
 
@@ -91,17 +97,40 @@ pub trait SensorsPair {
 impl SensorsPair for SensorsPairState {
 	fn new(slot_offset: i32) -> Self {
 		Self {
-			past_4_measures: [SensorsState { sensor1: false, sensor2: true }; 4],
-			current_index: 0,
+			last_measure: SensorsState { sensor1: false, sensor2: true },
 			slots: slot_offset,
 		}
 	}
 
 	fn update_state(&mut self, new_state: SensorsState) -> (bool, bool) {
-		// Advance index with bitwise wrap (equivalent to % 4 for power-of-2 size 4)
-		self.current_index = (self.current_index + 1) & 3;
-		self.past_4_measures[self.current_index] = new_state;
-		todo!("Complete the direction sensing by comparing the states");
+		// Quadrature transition lookup table.
+		// Index = (previous_state << 2) | current_state
+		//
+		// +1 = CCW
+		// -1 = CW
+		//  0 = unchanged or invalid transition
+		const LUT: [i8; 16] = [
+			0, -1,  1,  0,
+			1,  0,  0, -1,
+			-1,  0,  0,  1,
+			0,  1, -1,  0,
+		];
+
+		let previous = self.last_measure.as_bits();
+		let current = new_state.as_bits();
+
+		let index = ((previous << 2) | current) as usize;
+		let delta = LUT[index];
+
+		self.last_measure = new_state;
+
+		if delta == 0 {
+			return (false, false);
+		}
+
+		self.slots = self.slots.wrapping_add(delta as i32);
+
+		(true, delta > 0)
 	}
 
 	fn reset(&mut self, slots_offset: i32) {
