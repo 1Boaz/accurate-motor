@@ -33,7 +33,7 @@ impl SensorsState {
 }
 
 /// A struct to save the last encoder state for direction comparison and slots counter.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SensorsPairState {
 	/// Stores the most recent sensor measurement.
 	last_measure: SensorsState,
@@ -54,7 +54,7 @@ pub trait SensorsPair {
 	///
 	/// let encoder = SensorsPairState::new(0);
 	/// ```
-	fn new(slot_offset: i32) -> Self;
+	fn new(slot_offset: i32, sensors_start_state: SensorsState) -> Self;
 
 	/// Records a new [`SensorsState`] updates the slots counter and returns the direction delta (first bool is true for any movement, second is true only for CCW movement).
 	///
@@ -85,9 +85,9 @@ pub trait SensorsPair {
 }
 
 impl SensorsPair for SensorsPairState {
-	fn new(slot_offset: i32) -> Self {
+	fn new(slot_offset: i32, sensors_start_state: SensorsState) -> Self {
 		Self {
-			last_measure: SensorsState { sensor1: false, sensor2: true },
+			last_measure: sensors_start_state,
 			slots: slot_offset,
 		}
 	}
@@ -125,5 +125,102 @@ impl SensorsPair for SensorsPairState {
 
 	fn reset(&mut self, slots_offset: i32) {
 		self.slots = slots_offset;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn new_SensorsState() {
+		let case = SensorsState::new(true, true);
+		assert_eq!(case, SensorsState {sensor1: true, sensor2: true});
+
+		let case = SensorsState::new(false, false);
+		assert_eq!(case, SensorsState {sensor1: false, sensor2: false});
+
+		let case = SensorsState::new(true, false);
+		assert_eq!(case, SensorsState {sensor1: true, sensor2: false});
+	}
+
+	#[test]
+	fn two_bits_SensorsState() {
+		let case = SensorsState::new(true, false);
+		assert_eq!(case.as_bits(), 2);
+
+		let case = SensorsState::new(false, true);
+		assert_eq!(case.as_bits(), 1);
+
+		let case = SensorsState::new(false, false);
+		assert_eq!(case.as_bits(), 0);
+
+		let case = SensorsState::new(true, true);
+		assert_eq!(case.as_bits(), 3);
+	}
+	
+	#[test]
+	fn new_SensorsPairState() {
+		let sensors_0_offset = SensorsPairState::new(0, SensorsState::new(false, false));
+		assert_eq!(sensors_0_offset, SensorsPairState {
+			last_measure: SensorsState::new(false, false),
+			slots: 0,
+		});
+
+		let sensors_0_offset = SensorsPairState::new(0, SensorsState { sensor1: false, sensor2: true });
+		assert_eq!(sensors_0_offset, SensorsPairState {
+			last_measure: SensorsState { sensor1: false, sensor2: true },
+			slots: 0,
+		});
+
+		let sensors_positive_offset = SensorsPairState::new(50, SensorsState::new(false, false));
+		assert_eq!(sensors_positive_offset, SensorsPairState {
+			last_measure: SensorsState::new(false, false),
+			slots: 50,
+		});
+
+		let sensors_negative_offset = SensorsPairState::new(-30, SensorsState::new(false, false));
+		assert_eq!(sensors_negative_offset, SensorsPairState {
+			last_measure: SensorsState::new(false, false),
+			slots: -30,
+		});
+	}
+
+	#[test]
+	fn update_state_SensorsPairState() {
+		// 'f' for forwards
+		let mut sensors_f_step = SensorsPairState::new(0, SensorsState::new(false, false));
+		sensors_f_step.update_state(SensorsState::new(true, false));
+		assert_eq!(sensors_f_step, SensorsPairState::new(1, SensorsState::new(true, false)));
+
+		// 'b' for backwards
+		let mut sensors_b_step = SensorsPairState::new(0, SensorsState::new(true, false));
+		sensors_b_step.update_state(SensorsState::new(false, false));
+		assert_eq!(sensors_b_step, SensorsPairState::new(-1, SensorsState::new(false, false)));
+
+		let mut sensors_fbf_step = SensorsPairState::new(0, SensorsState::new(false, false));
+		assert_eq!((true, true), sensors_fbf_step.update_state(SensorsState::new(true, false)));
+		assert_eq!((true, false), sensors_fbf_step.update_state(SensorsState::new(false, false)));
+		assert_eq!((true, true), sensors_fbf_step.update_state(SensorsState::new(true, false)));
+		assert_eq!(sensors_f_step, SensorsPairState::new(1, SensorsState::new(true, false)));
+
+		let mut not_moved_step = SensorsPairState::new(0, SensorsState::new(false, false));
+		assert_eq!((false, false), not_moved_step.update_state(SensorsState::new(false, false)));
+		assert_eq!(0, not_moved_step.slots);
+
+		let mut skipped_step = SensorsPairState::new(5, SensorsState::new(false, false));
+		assert_eq!((false, false), skipped_step.update_state(SensorsState::new(true, true)));
+		assert_eq!(5, skipped_step.slots);
+	}
+
+	#[test]
+	fn reset_SensorsPairState() {
+		let mut sensors_positive_offset = SensorsPairState::new(0, SensorsState::new(false, false));
+		sensors_positive_offset.reset(5);
+		assert_eq!(sensors_positive_offset.slots, 5);
+
+		let mut sensors_negative_offset = SensorsPairState::new(0, SensorsState::new(false, false));
+		sensors_negative_offset.reset(-5);
+		assert_eq!(sensors_negative_offset.slots, -5);
 	}
 }
