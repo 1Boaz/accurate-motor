@@ -23,16 +23,6 @@ impl SensorsState {
 		Self { sensor1, sensor2 }
 	}
 
-	/// Returns the state of the first optical sensor.
-	pub fn sensor1(&self) -> bool {
-		self.sensor1
-	}
-
-	/// Returns the state of the second optical sensor.
-	pub fn sensor2(&self) -> bool {
-		self.sensor2
-	}
-
 	/// Packs the two sensor readings into a 2-bit state.
 	///
 	/// Sensor 1 is the most significant bit.
