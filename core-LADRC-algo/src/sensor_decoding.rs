@@ -17,6 +17,30 @@ pub struct SensorsState {
 	sensor2: bool,
 }
 
+
+/// Represents options which can be returned from the `update_state` function
+/// # Examples
+///
+/// ```
+/// use core_LADRC_algo::sensor_decoding::{Movement, SensorsPair, SensorsPairState, SensorsState};
+///
+/// let mut encoder = SensorsPairState::new(0, SensorsState::new(true, true));
+/// let new_state = SensorsState::new(true, false);
+/// match encoder.update_state(new_state) {
+///     Movement::InvalidMove => {}
+///     Movement::NoMovement => {}
+///     Movement::Clockwise => {}
+///     Movement::CounterClockwise => {}
+/// }
+/// ```
+#[derive(Debug, PartialEq)]
+pub enum Movement {
+	InvalidMove,
+	NoMovement,
+	Clockwise,
+	CounterClockwise,
+}
+
 impl SensorsState {
 	/// Creates a new [`SensorsState`] from raw sensor readings.
 	pub fn new(sensor1: bool, sensor2: bool) -> Self {
@@ -54,30 +78,34 @@ pub struct SensorsPairState {
 
 /// Interface for storing encoder state history and decoding rotational movement.
 pub trait SensorsPair {
-	/// Constructs a new encoder tracker initialized with default state values.
+	/// Constructs a new encoder tracker initialized with given state values.
 	/// Using the [`slot_offset`] parameter an offset can be given.
-	///
-	/// # Examples
-	///
-	/// ```
-	/// use core_LADRC_algo::sensor_decoding::{SensorsPairState, SensorsPair};
-	///
-	/// let encoder = SensorsPairState::new(0);
-	/// ```
-	fn new(slot_offset: i32, sensors_start_state: SensorsState) -> Self;
-
-	/// Records a new [`SensorsState`] updates the slots counter and returns the direction delta (first bool is true for any movement, second is true only for CCW movement).
 	///
 	/// # Examples
 	///
 	/// ```
 	/// use core_LADRC_algo::sensor_decoding::{SensorsPair, SensorsPairState, SensorsState};
 	///
-	/// let mut encoder = SensorsPairState::new(0);
-	/// let new_state = SensorsState::new(true, false);
-	/// let (is_moving, is_CCW) = encoder.update_state(new_state);
+	/// let encoder = SensorsPairState::new(0, SensorsState::new(true, true));
 	/// ```
-	fn update_state(&mut self, new_state: SensorsState) -> (bool, bool);
+	fn new(slot_offset: i32, sensors_start_state: SensorsState) -> Self;
+
+	/// Records a new [`SensorsState`] updates the slots counter and returns the direction/movement.
+	///
+	/// # Exampuse core_LADRC_algo::sensor_decoding::{SensorsPair, SensorsPairState, SensorsState};
+	///
+	/// let mut encoder = SensorsPairState::new(0, SensorsState::new(true, true));
+	/// let new_state = SensorsState::new(true, false);
+	/// let movement = encoder.update_state(new_state);les
+	///
+	/// ```
+	/// use core_LADRC_algo::sensor_decoding::{Movement, SensorsPair, SensorsPairState, SensorsState};
+	///
+	/// let mut encoder: SensorsPairState = SensorsPairState::new(0, SensorsState::new(true, true));
+	/// let new_state: SensorsState = SensorsState::new(true, false);
+	/// let movement: Movement = encoder.update_state(new_state);
+	/// ```
+	fn update_state(&mut self, new_state: SensorsState) -> Movement;
 
 	/// Resets the slots counter, intended for drift reset and useful with a limit switch.
 	/// Using the [`slot_offset`] parameter an offset can be given.
@@ -85,9 +113,9 @@ pub trait SensorsPair {
 	/// # Examples
 	///
 	/// ```
-	/// use core_LADRC_algo::sensor_decoding::{SensorsPairState, SensorsPair};
+	/// use core_LADRC_algo::sensor_decoding::{SensorsPairState, SensorsState, SensorsPair};
 	///
-	/// let mut encoder = SensorsPairState::new(0);
+	/// let mut encoder = SensorsPairState::new(0, SensorsState::new(true, true));
 	///
 	/// encoder.reset(36);
 	/// ```
@@ -102,7 +130,11 @@ impl SensorsPair for SensorsPairState {
 		}
 	}
 
-	fn update_state(&mut self, new_state: SensorsState) -> (bool, bool) {
+	fn update_state(&mut self, new_state: SensorsState) -> Movement {
+		if self.last_measure == new_state {
+			return Movement::NoMovement
+		}
+
 		// Quadrature transition lookup table.
 		// Index = (previous_state << 2) | current_state
 		//
@@ -125,12 +157,16 @@ impl SensorsPair for SensorsPairState {
 		self.last_measure = new_state;
 
 		if delta == 0 {
-			return (false, false);
+			return Movement::InvalidMove;
 		}
 
 		self.slots = self.slots.wrapping_add(delta as i32);
 
-		(true, delta > 0)
+		if delta > 0 {
+			Movement::Clockwise
+		} else {
+			Movement::CounterClockwise
+		}
 	}
 
 	fn reset(&mut self, slots_offset: i32) {
@@ -209,17 +245,17 @@ mod tests {
 		assert_eq!(sensors_b_step, SensorsPairState::new(-1, SensorsState::new(false, false)));
 
 		let mut sensors_fbf_step = SensorsPairState::new(0, SensorsState::new(false, false));
-		assert_eq!((true, true), sensors_fbf_step.update_state(SensorsState::new(true, false)));
-		assert_eq!((true, false), sensors_fbf_step.update_state(SensorsState::new(false, false)));
-		assert_eq!((true, true), sensors_fbf_step.update_state(SensorsState::new(true, false)));
+		assert_eq!(Movement::Clockwise, sensors_fbf_step.update_state(SensorsState::new(true, false)));
+		assert_eq!(Movement::CounterClockwise, sensors_fbf_step.update_state(SensorsState::new(false, false)));
+		assert_eq!(Movement::Clockwise, sensors_fbf_step.update_state(SensorsState::new(true, false)));
 		assert_eq!(sensors_f_step, SensorsPairState::new(1, SensorsState::new(true, false)));
 
 		let mut not_moved_step = SensorsPairState::new(0, SensorsState::new(false, false));
-		assert_eq!((false, false), not_moved_step.update_state(SensorsState::new(false, false)));
+		assert_eq!(Movement::NoMovement, not_moved_step.update_state(SensorsState::new(false, false)));
 		assert_eq!(0, not_moved_step.slots);
 
 		let mut skipped_step = SensorsPairState::new(5, SensorsState::new(false, false));
-		assert_eq!((false, false), skipped_step.update_state(SensorsState::new(true, true)));
+		assert_eq!(Movement::InvalidMove, skipped_step.update_state(SensorsState::new(true, true)));
 		assert_eq!(5, skipped_step.slots);
 	}
 
