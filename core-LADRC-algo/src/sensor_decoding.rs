@@ -23,6 +23,16 @@ impl SensorsState {
 		Self { sensor1, sensor2 }
 	}
 
+	/// Returns the value of [`sensor1`] state
+	pub fn sensor1(&self) -> bool {
+		self.sensor1
+	}
+
+	/// Returns the value of [`sensor2`] state
+	pub fn sensor2(&self) -> bool {
+		self.sensor2
+	}
+
 	/// Packs the two sensor readings into a 2-bit state.
 	///
 	/// Sensor 1 is the most significant bit.
