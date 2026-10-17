@@ -248,19 +248,19 @@ mod tests {
 	fn update_state_SensorsPairState() {
 		// 'f' for forwards
 		let mut sensors_f_step = SensorsPairState::new(0, SensorsState::new(false, false));
-		sensors_f_step.update_state(SensorsState::new(true, false), 8);
+		sensors_f_step.update_state(SensorsState::new(true, false), 0);
 		assert_eq!(sensors_f_step, SensorsPairState::new(1, SensorsState::new(true, false)));
 
 		// 'b' for backwards
 		let mut sensors_b_step = SensorsPairState::new(0, SensorsState::new(true, false));
-		sensors_b_step.update_state(SensorsState::new(false, false), 5);
+		sensors_b_step.update_state(SensorsState::new(false, false), 0);
 		assert_eq!(sensors_b_step, SensorsPairState::new(-1, SensorsState::new(false, false)));
 
 		let mut sensors_fbf_step = SensorsPairState::new(0, SensorsState::new(false, false));
 		assert_eq!(Movement::Clockwise, sensors_fbf_step.update_state(SensorsState::new(true, false), 1));
 		assert_eq!(Movement::CounterClockwise, sensors_fbf_step.update_state(SensorsState::new(false, false), 5000));
-		assert_eq!(Movement::Clockwise, sensors_fbf_step.update_state(SensorsState::new(true, false), 6));
-		assert_eq!(sensors_f_step, SensorsPairState::new(1, SensorsState::new(true, false)));
+		assert_eq!(Movement::Clockwise, sensors_fbf_step.update_state(SensorsState::new(true, false), 0));
+		assert_eq!(sensors_fbf_step, SensorsPairState::new(1, SensorsState::new(true, false)));
 
 		let mut not_moved_step = SensorsPairState::new(0, SensorsState::new(false, false));
 		assert_eq!(Movement::NoMovement, not_moved_step.update_state(SensorsState::new(false, false), 1));
