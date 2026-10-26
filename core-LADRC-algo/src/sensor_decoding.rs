@@ -26,7 +26,8 @@ pub struct SensorsState {
 ///
 /// let mut encoder = SensorsPairState::new(0, SensorsState::new(true, true));
 /// let new_state = SensorsState::new(true, false);
-/// match encoder.update_state(new_state) {
+/// let nanoseconds_since_last_measure = 5;
+/// match encoder.update_state(new_state, nanoseconds_since_last_measure) {
 ///     Movement::InvalidMove => {}
 ///     Movement::NoMovement => {}
 ///     Movement::Clockwise => {}
@@ -96,18 +97,24 @@ pub trait SensorsPair {
 
 	/// Records a new [`SensorsState`] updates the slots counter and returns the direction/movement.
 	///
-	/// # Exampuse core_LADRC_algo::sensor_decoding::{SensorsPair, SensorsPairState, SensorsState};
+	/// # Examples core_LADRC_algo::sensor_decoding::{SensorsPair, SensorsPairState, SensorsState};
+	///
+	/// ```
+	/// use core_LADRC_algo::sensor_decoding::{SensorsPair, SensorsPairState, SensorsState};
 	///
 	/// let mut encoder = SensorsPairState::new(0, SensorsState::new(true, true));
 	/// let new_state = SensorsState::new(true, false);
-	/// let movement = encoder.update_state(new_state);les
+	/// let nanoseconds_since_last_measure = 5;
+	/// let movement = encoder.update_state(new_state, nanoseconds_since_last_measure);
+	/// ```
 	///
 	/// ```
 	/// use core_LADRC_algo::sensor_decoding::{Movement, SensorsPair, SensorsPairState, SensorsState};
 	///
 	/// let mut encoder: SensorsPairState = SensorsPairState::new(0, SensorsState::new(true, true));
 	/// let new_state: SensorsState = SensorsState::new(true, false);
-	/// let movement: Movement = encoder.update_state(new_state);
+	/// let nanoseconds_since_last_measure = 5;
+	/// let movement: Movement = encoder.update_state(new_state, nanoseconds_since_last_measure);
 	/// ```
 	fn update_state(&mut self, new_state: SensorsState, dt_nanos: u64) -> Movement;
 
