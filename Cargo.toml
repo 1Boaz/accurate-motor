@@ -2,4 +2,5 @@
 
 members = [
     "core-LADRC-algo",
+    "esp32-c3"
 ]
