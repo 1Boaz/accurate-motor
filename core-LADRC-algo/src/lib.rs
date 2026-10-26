@@ -5,3 +5,4 @@
 
 pub mod sensor_decoding;
 pub mod controllers;
+pub mod speed_curves_tracking;
